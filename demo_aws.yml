@@ -1,0 +1,47 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    ami_id: ami-9a562df2
+  tasks:
+    - name: Provision a set of instances
+      ec2:
+        key_name: overdrive
+        assign_public_ip: true
+        vpc_subnet_id: subnet-d1ae69fa
+        instance_type: t2.micro
+        image: "{{ ami_id }}"
+        group: sg_thingy
+        wait: true
+        region: "us-east-1"
+        exact_count: 5
+        count_tag:
+          group: webservers
+        instance_tags:
+          name: webserver
+          group: webservers
+      register: ec2
+
+    - name: Add all instance public IP to host group
+      add_host: hostname={{ item.public_ip }} groupname=ec2hosts
+      with_items: ec2.instances
+
+    - name: setting up DNS
+      route53: command=create zone=gochos.io record="nginx{{ item.0 }}.gochos.io" type=A ttl=7200 value={{ item.1.public_ip }}
+      with_indexed_items: ec2.instances
+
+- hosts: all
+  name: configuration play
+  gather_facts: False
+  user: ubuntu
+  sudo: true
+  tags:
+    - deploy
+
+  tasks:
+    - name: install nginx
+      apt: name=nginx state=present update_cache=yes cache_valid_time=3600
+
+    - name: copy index.html
+      template: src=index.html.j2 dest=/usr/share/nginx/html/index.html

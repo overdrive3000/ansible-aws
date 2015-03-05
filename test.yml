@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+    - name: counter
+      debug: msg="Counting a list position {{ item.0 + 1 }} name {{ item.1.name }}, group {{ item.1.groups }}"
+      with_indexed_items:
+        - { name: 'testuser1', groups: 'wheel' }
+        - { name: 'testuser2', groups: 'root' }
